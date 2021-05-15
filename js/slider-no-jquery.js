@@ -73,8 +73,8 @@ function slider(
 
   // Store the page position of the slider
   this.offset = this.$container.getBoundingClientRect();
-  this.left = Math.round(this.offset.left);
-  this.top = Math.round(this.offset.top);
+  this.left = Math.round(window.scrollX + this.offset.left);
+  this.top = Math.round(window.scrollY + this.offset.top);
 
   // Store the minimum and maximum and initial values
   this.min = min;
@@ -83,6 +83,10 @@ function slider(
   this.jump = jump;
   this.val1 = val1;
   this.domParser = new DOMParser();
+
+
+  this.$numberFallbackContainer = [];
+  this.$numberFallbackInput = [];
 
   // If range is true, store the second value
   if (range == true) {
@@ -126,28 +130,28 @@ slider.prototype.htmlToDomNode = function (html) {
 // @return (object) returns the object pointer of the newly created handle
 //
 slider.prototype.createHandle = function (val, num) {
-  var index = num == undefined ? "" : num;
+  var index = ( num === undefined ) ? "" : num;
   var id = this.id + "_handle" + index;
-  var label = this.id + "_label" + index;
-  var desc = this.id + "_desc" + index;
-  var controls = this.id + "_text" + index;
+  var ariaLabel = this.id + "_label" + index;
+  var ariaDesc = this.id + "_desc" + index;
   var $handle;
+
+
+  const { $numberFallbackContainer, $input } = this.createNumberFallback(val, num);
+  this.$container.appendChild($numberFallbackContainer);
 
   // slider HTML. If it doesn't exist in the DOM, we create it for you.
   var handle = document.getElementById(id);
   if (!handle) {
     handle =
-      "<img " +
+      "<button " +
       'draggable="false" ' +
       'id="' +
       id +
       '" ' +
       'class="' +
       this.className +
-      '__handle" ' +
-      'src="images/slider_' +
-      (this.vert == true ? "v" : "h") +
-      '.png" ' +
+      '__handle" '  +
       'role="slider" ' +
       'aria-valuemin="' +
       this.min +
@@ -159,15 +163,12 @@ slider.prototype.createHandle = function (val, num) {
       (val == undefined ? this.min : val) +
       '" ' +
       'aria-labelledby="' +
-      label +
+      ariaLabel +
       '" ' +
       'aria-describedby="' +
-      desc +
+      ariaDesc +
       '" ' +
-      'aria-controls="' +
-      controls +
-      '" ' +
-      'tabindex="0">';
+      'tabindex="0">  </button>';
     $handle = this.htmlToDomNode(handle);
   }
 
@@ -186,15 +187,16 @@ slider.prototype.createHandle = function (val, num) {
 
     // Create the container.
     this.$container.appendChild(this.htmlToDomNode(valContainer));
+    this.$container.appendChild($numberFallbackContainer);
   }
 
   // keyboard instructions
-  var descContainer = document.getElementById(desc);
+  var descContainer = document.getElementById(ariaDesc);
   if (!descContainer) {
     descContainer =
       '<div id="' +
-      desc +
-      '" class="visually-hidden">Use arrow keys to change the value</div>';
+      ariaDesc +
+      '" class="sr-only">Use arrow keys to change the value</div>';
     descContainer = this.htmlToDomNode(descContainer);
   }
   this.$container.appendChild(descContainer);
@@ -206,10 +208,72 @@ slider.prototype.createHandle = function (val, num) {
   this.positionHandle($handle, val);
 
   // bind handlers
-  this.bindHandlers($handle);
+  this.bindHandlers($handle, $input);
 
   return $handle;
 }; // end createHandle()
+
+slider.prototype.createNumberFallback = function (val, numIndex) {
+  const index = ( numIndex === undefined ) ? "" : numIndex;
+  const suffix = (numIndex !== undefined) ? '--' + numIndex : "";
+  const numberId = this.id + "__number-fallback" + suffix;
+  const ariaLabel = this.id + "_label" + index;
+  const ariaDesc = this.id + "_desc" + index;
+  const inputValue = (val == undefined ? this.min : val);
+  let label = '';
+  
+  if (index !== undefined) {
+    if (index === 1) {
+      label = "Minimum:";
+    } else {
+      label = "Maximum:";
+    }
+  }
+
+  const labelHTML = (index !== undefined) ? '<label for="' + numberId + '">' + label + '</label>' : '';
+  const numberHTML =
+    labelHTML + 
+    '<input id="' +
+    numberId +
+    '" type="number"  min="' +
+    this.min +
+    '" max="' +
+    this.max +
+    '" aria-labelledby="' +
+    ariaLabel +
+    '" aria-describedby="' +
+    ariaDesc +
+    '" value="' + 
+    inputValue +
+    '" class="enable-visible-on-focus enable-slider__number-fallback" tabindex="0" />';
+
+  const wrapperHTML =
+    '<div class="enable-visible-on-focus__container enable-skip-link--end">' +
+    numberHTML +
+    "</div>";
+
+  const $wrapperHTML = this.htmlToDomNode(wrapperHTML);
+  const $input = $wrapperHTML.querySelector('#' + numberId);
+  
+  if (this.step) {
+    $input.step = this.step;
+  }
+
+  console.log('foo', index, this.$numberFallbackContainer);
+  if (index === "") {
+    this.$numberFallbackContainer[1] = $wrapperHTML;
+    this.$numberFallbackInput[1] = $input;
+  } else {
+    this.$numberFallbackContainer[index - 1] = $wrapperHTML;
+    this.$numberFallbackInput[index - 1] = $input;
+  }
+  console.log('bar', index, this.$numberFallbackContainer);
+
+  return {
+    $numberFallbackContainer: $wrapperHTML, 
+    $input: $input
+  };
+};
 
 //
 // function createRangeDiv() creates a div for the highlight of a range slider. It sets the initial top or left position
@@ -262,6 +326,8 @@ slider.prototype.positionHandle = function ($handle, val) {
   var yPos; // calculated vertical position of the handle;
   var valPos; //calculated new pixel position for the value;
 
+  this.ignoreFallbackChange = true;
+
   if (this.vert == false) {
     // horizontal slider
 
@@ -288,12 +354,21 @@ slider.prototype.positionHandle = function ($handle, val) {
   $handle.setAttribute("aria-valuenow", val);
 
   // Update the stored handle values
-  if (/1$/.test($handle.getAttribute("id")) == true) {
+  console.log($handle.getAttribute("id"), /1$/.test($handle.getAttribute("id")), this.$numberFallbackInput1);
+  if (/1$/.test($handle.getAttribute("id")) === true) {
     // first handle
     this.val1 = val;
+    if (this.$numberFallbackInput[0]) {
+      console.log('yy')
+      this.$numberFallbackInput[0].value = val;
+    }
   } else {
     // second handle
     this.val2 = val;
+    if (this.$numberFallbackInput[1]) {
+      console.log('xx')
+      this.$numberFallbackInput[1].value = val;
+    }
   }
 
   // if range is true, set the position of the range div
@@ -366,6 +441,7 @@ slider.prototype.positionRangeDiv = function () {
 //
 slider.prototype.updateValBox = function ($handle, valPos) {
   var $valBox = document.getElementById($handle.getAttribute("id") + "_val");
+  console.log('hmmm', valPos);
 
   var xPos; // horizontal pixel position of the box
   var yPos; // vertical pixel position of the box
@@ -401,15 +477,8 @@ slider.prototype.updateValBox = function ($handle, valPos) {
 // @param ($handle object) $handle is the object pointer of the handle to bind handlers to
 //
 // @return N/A
-slider.prototype.bindHandlers = function ($handle) {
+slider.prototype.bindHandlers = function ($handle, $numberInputFallback) {
   var thisObj = this; // store the this pointer
-
-  document.addEventListener("volumeupbutton", thisObj.onVolumeUpKeyDown, false);
-  document.addEventListener(
-    "volumedownbutton",
-    thisObj.onVolumeDownKeyDown,
-    false
-  );
 
   $handle.addEventListener("keydown", function (e) {
     return thisObj.handleKeyDown($handle, e);
@@ -430,6 +499,11 @@ slider.prototype.bindHandlers = function ($handle) {
   $handle.addEventListener("mousedown", function (e) {
     return thisObj.handleMouseDown($handle, e);
   });
+
+  $numberInputFallback.addEventListener("change", function (e) {
+    return thisObj.handleFallbackChange($handle, $numberInputFallback, e);
+  })
+
 }; // end bindHandlers()
 
 //
@@ -583,14 +657,6 @@ slider.prototype.handleKeyDown = function ($handle, evt) {
   return true;
 }; // end handleKeyDown
 
-slider.prototype.onVolumeUpKeyDown = e => {
-  console.log("up");
-};
-
-slider.prototype.onVolumeDownKeyDown = e => {
-  console.log("down");
-};
-
 //
 // function handleKeyPress() is a member function to process keypress events for a slider handle. Needed for
 // browsers that perform window scrolling on keypress rather than keydown events.
@@ -722,6 +788,7 @@ slider.prototype.handleMouseDown = function ($handle, evt) {
     e.stopPropagation;
     return false;
   };
+  
 
   // bind a mousemove event handler to the document to capture the mouse
   document.body.addEventListener("mousemove", mouseMoveEvent);
@@ -733,6 +800,14 @@ slider.prototype.handleMouseDown = function ($handle, evt) {
   return false;
 }; // end handleMouseDown()
 
+slider.prototype.handleFallbackChange = function($handle, $numberFallbackContainer, evt) {
+  if (this.ignoreFallbackChange) {
+    this.positionHandle($handle, parseFloat($numberFallbackContainer.value));
+  } else {
+    this.ignoreFallbackChange = false;
+  }
+}
+
 //
 // function handleMouseMove() is a member function to process mousemove events for a slider handle.
 //
@@ -743,7 +818,6 @@ slider.prototype.handleMouseDown = function ($handle, evt) {
 // @return (boolean) true if propagating; false if consuming event
 //
 slider.prototype.handleMouseMove = function ($handle, evt) {
-  console.log("x", evt.target);
   var curVal = parseInt($handle.getAttribute("aria-valuenow"));
   var newVal;
   var startVal = this.min;
@@ -763,7 +837,6 @@ slider.prototype.handleMouseMove = function ($handle, evt) {
 
   if (this.vert == false) {
     // horizontal slider
-
     // Calculate the new slider value based on the horizontal pixel position of the mouse
     newVal =
       Math.round(
@@ -771,13 +844,11 @@ slider.prototype.handleMouseMove = function ($handle, evt) {
       ) + this.min;
   } else {
     // vertical slider
-    // ZOLTAN - Why is this wrong?
     // Calculate the new slider value based on the vertical pixel position of the mouse
     newVal =
       Math.round(
         ((evt.pageY - this.top) / this.height) * (this.max - this.min)
       ) + this.min;
-    console.log("hmmm", this.min, newVal, evt.pageY, this.max, this.height);
   }
 
   if (newVal >= startVal && newVal <= stopVal) {
@@ -797,34 +868,45 @@ slider.prototype.handleMouseMove = function ($handle, evt) {
   return false;
 }; // end handleMouseMove
 
-// slider1 is a horizontal slider
-var slider1 = new slider("sr1", false, 0, 100, 5, 10, true, false, 30);
+const enableSliders = new (function () {
+  this.list = [];
 
-// slider2 is a horizontal range slider
-var slider2 = new slider(
-  "sr2",
-  false,
-  1900,
-  2008,
-  1,
-  10,
-  true,
-  true,
-  1950,
-  2000
-);
+  this.init = e => {
+    const $roots = document.querySelectorAll(".enable-slider");
 
-// slider3 is a vertical range slider
-//var slider3 = new slider('sr3', true, 0, 100, 1, true, false, 25);
-var slider3 = new slider(
-  "sr3",
-  true,
-  1900,
-  2008,
-  1,
-  10,
-  true,
-  true,
-  1950,
-  2008
-);
+    for (let i = 0; i < $roots.length; i++) {
+      const $root = $roots[i];
+      const {
+        min,
+        max,
+        inc,
+        jump,
+        showVals,
+        range,
+        val1,
+        val2
+      } = $root.dataset;
+
+      if (!$root.id) {
+        $root.id = "enable-slider__" + i;
+      }
+
+      this.list.push(
+        new slider(
+          $root.id,
+          $root.classList.contains("enable-slider--vertical"),
+          parseFloat(min),
+          parseFloat(max),
+          parseFloat(inc),
+          parseFloat(jump),
+          showVals === "true",
+          range === "true",
+          parseFloat(val1),
+          parseFloat(val2)
+        )
+      );
+    }
+  };
+})();
+
+enableSliders.init();
