@@ -1,8 +1,10 @@
 #!/bin/bash
 
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
 VNU_CMD='java -jar node_modules/vnu-jar/build/dist/vnu.jar '
 
-URLS=`lynx -dump http://localhost:8888/aria-role-demos |awk '/http/{print $2}' | grep -v '#' | grep localhost | sort -u`
+URLS=`$SCRIPT_DIR/getAllURLS`
 DOWNLOADED_URLS=""
 TEMP_FILES=""
 
@@ -10,23 +12,8 @@ TEMP_FILES=""
 #.. This is the list of files that are to be tested with aXe after a delay of 2000 ms.
 AXE_DELAYED_FILES="21-math.php"
 
-
-rm tmp/* 2> /dev/null
-
-for i in $URLS
-do
-	FILE_SLUG=`echo $i| awk -F'/' '{print $NF}'`
-	TEMP_FILE="tmp/$FILE_SLUG"
-
-	
-	printf "."
-	
-	wget $i -O $TEMP_FILE 2> /dev/null
-	DOWNLOADED_URLS=`echo -e "$DOWNLOADED_URLS\n$i"`
-	TEMP_FILES="$TEMP_FILES $TEMP_FILE"
-done
-echo	
-		
+DOWNLOADED_URLS=`$SCRIPT_DIR/downloadProcessedPHP $URLS`
+TEMP_FILES=`ls -d -1 tmp/*`
 
 echo "Checking HTML...."
 echo
@@ -48,11 +35,11 @@ OUTPUT_LEN=`echo "$OUTPUT" | wc -c`
 if [ "$OUTPUT_LEN" -gt "1" ]
 then
 	echo "$OUTPUT"
-	rm $TEMP_FILES
+	$SCRIPT_DIR/removeProcessedPHP
 	exit
 fi
 
-rm $TEMP_FILES
+$SCRIPT_DIR/removeProcessedPHP
 
 echo "Running accessibility tests..."
 

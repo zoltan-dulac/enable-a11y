@@ -22,3 +22,7 @@ const interpolate = function (template, params) {
   }
   return r;
 };
+
+if (typeof exports !== 'undefined') {
+  module.exports = interpolate;
+}

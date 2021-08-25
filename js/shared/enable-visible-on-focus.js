@@ -130,3 +130,7 @@ const enableVisibleOnFocus = new (function (e) {
 
   this.init();
 })();
+
+if (typeof exports !== 'undefined') {
+  module.exports = enableVisibleOnFocus;
+}

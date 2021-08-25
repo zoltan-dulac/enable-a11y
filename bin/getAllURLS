@@ -1,0 +1,3 @@
+#!/bin/bash
+
+lynx -dump http://localhost:8888/aria-role-demos |awk '/http/{print $2}' | grep -v '#' | grep localhost | sort -u

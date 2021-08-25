@@ -990,3 +990,7 @@ const accessibility = {
     this.initGroup(el, options);
   }
 };
+
+if (typeof exports !== 'undefined') {
+  module.exports = accessibility;
+}

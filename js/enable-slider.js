@@ -410,7 +410,7 @@ const enableSlider = function (
    * @returns { boolean } true if propagating; false if consuming event
    */
   this.handleKeyDown = function ($handle, evt) {
-    $handleButton = $handle.querySelector('.enable-slider__handle-button');
+    const $handleButton = $handle.querySelector('.enable-slider__handle-button');
     if (evt.ctrlKey || evt.shiftKey || evt.altKey) {
       // Do nothing
       return true;
@@ -599,7 +599,7 @@ const enableSlider = function (
    * @returns { boolean } true if propagating; false if consuming event
    */
   this.handlePointerDown = function ($handle, $incrementor, $decrementor, evt) {
-    $handleButton = $handle.querySelector('.enable-slider__handle-button');
+    const $handleButton = $handle.querySelector('.enable-slider__handle-button');
     
     if (evt.target && (evt.target === $decrementor || evt.target === $incrementor)) {
       return;
@@ -664,13 +664,11 @@ const enableSlider = function (
    * button. This button should only be visible to mobile screen reader users.
    *
    * @param { HTMLElement } $handle - DOM node of the handle container to be manipulated
-   * @param { HTMLElement } $handleButton - DOM node of the handle button.
    * @param { Event } evt - the click event object
    */
   this.handleDecrementorClick = function ($handle, evt) {
-    $handleButton = $handle.querySelector('.enable-slider__handle-button');
+    const $handleButton = $handle.querySelector('.enable-slider__handle-button');
     
-    console.log($handleButton);
     const newVal = $handleButton.getAttribute("aria-valuenow") - this.inc;
     let stopVal = this.min; // where to stop moving
 
@@ -699,7 +697,7 @@ const enableSlider = function (
    * @param { Event } evt - the click event object
    */
   this.handleIncrementorClick = function ($handle, evt) {
-    $handleButton = $handle.querySelector('.enable-slider__handle-button');
+    const $handleButton = $handle.querySelector('.enable-slider__handle-button');
     const newVal = parseInt($handleButton.getAttribute("aria-valuenow")) + this.inc;
     let stopVal = this.max; // where to stop moving
 
@@ -755,7 +753,7 @@ const enableSlider = function (
    * @returns { boolean } true if propagating; false if consuming event
    */
   this.handlePointerMove = function ($handle, evt) {
-    $handleButton = $handle.querySelector('.enable-slider__handle-button');
+    const $handleButton = $handle.querySelector('.enable-slider__handle-button');
     const curVal = parseInt($handleButton.getAttribute("aria-valuenow"));
     let newVal;
     let startVal = this.min;
@@ -847,3 +845,8 @@ const enableSliders = new (function () {
 })();
 
 enableSliders.init();
+
+
+if (typeof exports !== 'undefined') {
+  module.exports = enableSliders;
+}

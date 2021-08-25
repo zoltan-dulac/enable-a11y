@@ -1,0 +1,25 @@
+#!/bin/bash
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+URLS="$*"
+
+if [ "$URLS" = "" ]
+then
+    URLS=`$SCRIPT_DIR/getAllURLS`
+fi
+
+$SCRIPT_DIR/removeProcessedPHP
+
+for i in $URLS
+do
+	FILE_SLUG=`echo $i| awk -F'/' '{print $NF}'`
+	TEMP_FILE="tmp/$FILE_SLUG"
+
+	
+	printf "." 1>&2
+	
+	wget $i -O $TEMP_FILE 2> /dev/null
+	DOWNLOADED_URLS=`echo -e "$DOWNLOADED_URLS\n$i"`
+	TEMP_FILES="$TEMP_FILES $TEMP_FILE"
+done
+echo "$DOWNLOADED_URLS"
